@@ -4,6 +4,7 @@ from zoology.config import TrainConfig, ModelConfig, ModuleConfig, DataConfig, L
 from zoology.data.associative_recall import MQARConfig
 
 
+
 sweep_id = uuid.uuid4().hex[:6]
 sweep_name = "kvs-lin-attn-sweep" + sweep_id
 
@@ -342,12 +343,12 @@ for model in models:
             max_epochs=32,
             logger=LoggerConfig(
                 project_name="zoology",
-                entity="hazy-research"
+                entity="xupan-harvard-university"
             ),
             slice_keys=["num_kv_pairs"],
             sweep_id=sweep_name,
             run_id=run_id,
-            predictions_path=f"/var/cr05_data/sim_data/zg-synthetics/predictions/{run_id}",
+            predictions_path=f"/n/home13/xupan/Projects/token_compression/zoology_cache/predictions/{run_id}",
             collect_predictions=True,
         )
         configs.append(config)
