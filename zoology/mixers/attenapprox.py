@@ -42,13 +42,11 @@ class AttenApprox(nn.Module):
         causal: bool = True,
         apply_rotary: bool = False,
         rope_theta: int=10000.0,
-        train_view: str = "linear",
         **kwargs
     ):
         super().__init__()
         self.d_model = d_model
         self.l_max = l_max
-        self.train_view = train_view
 
         # linear attention 
         self.feature_name = feature_name
@@ -145,6 +143,9 @@ class AttenApprox(nn.Module):
         y (torch.Tensor): tensor of shape (b, d, l)
         """
         # hidden_states = hidden_states.transpose(1, 2)
+        # b: batch size
+        # l: sequence length 
+        # d: hidden dimension (d_model)
         b, l, d = hidden_states.size()
         if self.apply_rotary:
             assert d == self.d_model, f'Hidden_states.shape should be size {(b, l, d)} but is shape {hidden_states.shape}'
@@ -158,35 +159,29 @@ class AttenApprox(nn.Module):
         # Linear attention
         q, k = self.feature_map(q), self.feature_map(k)
         
-        # Compute attention
-        if self.train_view == "linear":
-            if causal_dot_product is not None and self.causal:
-                    v = causal_dot_product(q.contiguous().to(dtype=torch.float32), k.contiguous().to(dtype=torch.float32),v.contiguous().to(dtype=torch.float32),)
-                    z = 1 / (
-                        torch.einsum(
-                            "bhld,bhld->bhl", 
-                            q.to(dtype=torch.float32), 
-                            k.to(dtype=torch.float32).cumsum(2)
-                        ) + self.eps)
-                    y = v * z[..., None]
-                    y = y.to(hidden_states.dtype)
-            else:
-                q, k, v = q.unsqueeze(-2), k.unsqueeze(-2), v.unsqueeze(-1)
-                if self.causal:
-                    y = ((q * (k * v).cumsum(dim=2)).sum(dim=-1) / 
-                        ((q * k.cumsum(dim=2)).sum(dim=-1) + self.eps))
-                else:
-                    y = ((q * (k * v).sum(dim=2, keepdim=True)).sum(dim=-1) /
-                        ((q * k.sum(dim=2, keepdim=True)).sum(dim=-1) + self.eps))
-        elif self.train_view == "quadratic":
-            cumsum_matrix = torch.tril(torch.ones((l, l))).to(q.device, q.dtype)
-            A_qk = torch.einsum("bhnd,bhmd->bhnm", q, k) * cumsum_matrix
-            out = torch.einsum("bhnm,bhme->bhne", A_qk.to(hidden_states.dtype), v.to(hidden_states.dtype))
-            z = 1 / (torch.einsum("bhld,bhld->bhl", q, k.cumsum(2)) + self.eps)
-            y = out * z[..., None]
-            y = y.to(hidden_states.dtype)
-        else:
-            raise NotImplementedError(f"train_view {self.train_view} not implemented")
+        # Attention approximation
+        n = torch.arange(1, q.shape[2]+1, device=q.device, dtype=q.dtype).unsqueeze(-1)
+        mean_keys = torch.cumsum(k, dim=2)
+        mean_keys = mean_keys/n
+        center_keys = k - mean_keys
+        mean_values = torch.cumsum(v, dim=2)
+        mean_values = mean_values/n
+        center_values = v - mean_values
+        qK = torch.einsum("bhqi,bhpi->bhqp", q, center_keys) # [batch_size, num_heads, querylength, querylength]
+        
+        # mask the upper triangular part of qK
+        qK = qK.view(-1, qK.shape[2], qK.shape[3]) # [batch_size*num_heads, querylength, querylength]
+        qK = torch.tril(qK)
+        qK = qK.view(q.shape[0], q.shape[1], q.shape[2], q.shape[2])
+        
+        qK_squared = torch.cumsum(qK**2/(2*self.head_dim), dim=2)
+        qK_squared = torch.sum(qK_squared, dim=3)
+        
+        denominator = n.squeeze() + qK_squared
+        
+        qKV = torch.einsum("bhqp,bhpi->bhqi", qK, center_values)/torch.sqrt(self.head_dim)
+        
+        y = mean_values + qKV/denominator.unsqueeze(-1)
 
                     
 
@@ -196,6 +191,7 @@ class AttenApprox(nn.Module):
         return y.to(hidden_states.dtype) 
     
 
+# need to change this.
     def state_size(self, sequence_length: int=2048):
         return (
             self.num_key_value_heads * self.head_dim * self.feature_map.expanded_size() + 
