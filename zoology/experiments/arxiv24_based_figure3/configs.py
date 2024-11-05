@@ -137,7 +137,7 @@ for model in models:
             max_epochs=32,
             logger=LoggerConfig(
                 project_name="zoology",
-                entity="hazy-research"
+                entity="xupan-harvard-university"
             ),
             slice_keys=["num_kv_pairs"],
             sweep_id=sweep_name,

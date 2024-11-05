@@ -327,7 +327,14 @@ for d_model in [128]:
 
 
 # attenapprox
-for d_model in [64, 128]:
+for d_model in [64,
+    128,
+    192,
+    256,
+    320,
+    384,
+    448,
+    512]:
     attention_mixer = dict(
         name="zoology.mixers.attenapprox.AttenApprox",
         kwargs={
