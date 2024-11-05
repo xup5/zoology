@@ -33,7 +33,7 @@ class AttenApprox(nn.Module):
         self,
         d_model: int,
         l_max: int = 2048,
-        feature_dim: int = 16,
+        # feature_dim: int = 16,
         num_heads: int = 12,
         # feature_name: "str" = "taylor_exp",
         # feature_kwargs: dict = {},
@@ -49,10 +49,11 @@ class AttenApprox(nn.Module):
 
         # linear attention 
         # self.feature_name = feature_name
-        self.feature_dim = feature_dim
+        
         self.num_heads = num_heads
         self.num_key_value_groups = self.num_heads // self.num_heads
-        self.head_dim = self.d_model // self.num_heads
+        self.feature_dim = self.d_model // self.num_heads
+        self.head_dim = self.d_model // self.num_heads # same as feature_dim
         self.causal=causal
         # feature_map_kwargs = {
         #     'input_dim': self.feature_dim,
@@ -194,7 +195,7 @@ class AttenApprox(nn.Module):
 # need to change this.
     def state_size(self, sequence_length: int=2048):
         return (
-            1
+            2*()
             # self.num_heads * self.head_dim * self.feature_map.expanded_size() + 
             # self.num_heads * self.feature_map.expanded_size()
         )
