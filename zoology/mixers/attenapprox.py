@@ -195,7 +195,5 @@ class AttenApprox(nn.Module):
 # need to change this.
     def state_size(self, sequence_length: int=2048):
         return (
-            2*()
-            # self.num_heads * self.head_dim * self.feature_map.expanded_size() + 
-            # self.num_heads * self.feature_map.expanded_size()
+            2*(self.d_model + self.num_heads * self.feature_dim * self.feature_dim)
         )
