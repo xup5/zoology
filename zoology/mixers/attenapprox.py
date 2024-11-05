@@ -34,7 +34,6 @@ class AttenApprox(nn.Module):
         d_model: int,
         l_max: int = 2048,
         feature_dim: int = 16,
-        num_key_value_heads: int = 12,
         num_heads: int = 12,
         # feature_name: "str" = "taylor_exp",
         # feature_kwargs: dict = {},
@@ -51,10 +50,9 @@ class AttenApprox(nn.Module):
         # linear attention 
         # self.feature_name = feature_name
         self.feature_dim = feature_dim
-        self.num_key_value_heads = num_key_value_heads
         self.num_heads = num_heads
-        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
-        self.head_dim = self.d_model // self.num_key_value_heads
+        self.num_key_value_groups = self.num_heads // self.num_heads
+        self.head_dim = self.d_model // self.num_heads
         self.causal=causal
         # feature_map_kwargs = {
         #     'input_dim': self.feature_dim,
@@ -66,7 +64,7 @@ class AttenApprox(nn.Module):
         # self.feature_map = init_feature_map(feature_map=self.feature_name, **feature_map_kwargs)
         self.proj_q = nn.Linear(self.d_model, self.feature_dim * self.num_heads, bias=False)
         self.proj_k = nn.Linear(self.d_model, self.feature_dim * self.num_heads, bias=False)
-        self.proj_v = nn.Linear(self.d_model, self.num_key_value_heads * self.head_dim, bias=False)
+        self.proj_v = nn.Linear(self.d_model, self.num_heads * self.head_dim, bias=False)
         self.proj_o = nn.Linear(self.num_heads * self.head_dim, self.d_model, bias=False)
         self.dropout = nn.Identity()
         self.eps = eps
@@ -75,8 +73,8 @@ class AttenApprox(nn.Module):
         self.apply_rotary = apply_rotary
         self.rope_theta = rope_theta
         self.q_shape = [self.num_heads, self.feature_dim]
-        self.k_shape = [self.num_key_value_heads, self.feature_dim]
-        self.v_shape = [self.num_key_value_heads, self.head_dim]
+        self.k_shape = [self.num_heads, self.feature_dim]
+        self.v_shape = [self.num_heads, self.head_dim]
         if self.apply_rotary:
             self.rotary_emb = LlamaRotaryEmbedding(
                 self.feature_dim,
@@ -154,8 +152,8 @@ class AttenApprox(nn.Module):
         else:
             q, k, v = self.proj_q(hidden_states), self.proj_k(hidden_states), self.proj_v(hidden_states)
             q = q.view(b, l, self.num_heads, self.feature_dim).transpose(1, 2)
-            k = k.view(b, l, self.num_key_value_heads, self.feature_dim).transpose(1, 2)
-            v = v.view(b, l, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+            k = k.view(b, l, self.num_heads, self.feature_dim).transpose(1, 2)
+            v = v.view(b, l, self.num_heads, self.head_dim).transpose(1, 2)
         
         # Linear attention
         # q, k = self.feature_map(q), self.feature_map(k)
@@ -196,6 +194,6 @@ class AttenApprox(nn.Module):
     def state_size(self, sequence_length: int=2048):
         return (
             1
-            # self.num_key_value_heads * self.head_dim * self.feature_map.expanded_size() + 
-            # self.num_key_value_heads * self.feature_map.expanded_size()
+            # self.num_heads * self.head_dim * self.feature_map.expanded_size() + 
+            # self.num_heads * self.feature_map.expanded_size()
         )
