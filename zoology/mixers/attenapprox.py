@@ -36,8 +36,8 @@ class AttenApprox(nn.Module):
         feature_dim: int = 16,
         num_key_value_heads: int = 12,
         num_heads: int = 12,
-        feature_name: "str" = "taylor_exp",
-        feature_kwargs: dict = {},
+        # feature_name: "str" = "taylor_exp",
+        # feature_kwargs: dict = {},
         eps: float = 1e-12,
         causal: bool = True,
         apply_rotary: bool = False,
@@ -49,20 +49,21 @@ class AttenApprox(nn.Module):
         self.l_max = l_max
 
         # linear attention 
-        self.feature_name = feature_name
+        # self.feature_name = feature_name
         self.feature_dim = feature_dim
         self.num_key_value_heads = num_key_value_heads
         self.num_heads = num_heads
         self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         self.head_dim = self.d_model // self.num_key_value_heads
         self.causal=causal
-        feature_map_kwargs = {
-            'input_dim': self.feature_dim,
-            'head_dim_idx': -1,
-            'temp': 1.,
-            'eps': 1e-12,
-            **feature_kwargs
-        }
+        # feature_map_kwargs = {
+        #     'input_dim': self.feature_dim,
+        #     'head_dim_idx': -1,
+        #     'temp': 1.,
+        #     'eps': 1e-12,
+        #     **feature_kwargs
+        # }
+        # self.feature_map = init_feature_map(feature_map=self.feature_name, **feature_map_kwargs)
         self.proj_q = nn.Linear(self.d_model, self.feature_dim * self.num_heads, bias=False)
         self.proj_k = nn.Linear(self.d_model, self.feature_dim * self.num_heads, bias=False)
         self.proj_v = nn.Linear(self.d_model, self.num_key_value_heads * self.head_dim, bias=False)
@@ -157,7 +158,7 @@ class AttenApprox(nn.Module):
             v = v.view(b, l, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         
         # Linear attention
-        q, k = self.feature_map(q), self.feature_map(k)
+        # q, k = self.feature_map(q), self.feature_map(k)
         
         # Attention approximation
         n = torch.arange(1, q.shape[2]+1, device=q.device, dtype=q.dtype).unsqueeze(-1)
@@ -174,12 +175,12 @@ class AttenApprox(nn.Module):
         qK = torch.tril(qK)
         qK = qK.view(q.shape[0], q.shape[1], q.shape[2], q.shape[2])
         
-        qK_squared = torch.cumsum(qK**2/(2*self.head_dim), dim=2)
+        qK_squared = torch.cumsum(qK**2/(2*torch.tensor(self.head_dim, device=qK.device, dtype=qK.dtype)), dim=2)
         qK_squared = torch.sum(qK_squared, dim=3)
         
         denominator = n.squeeze() + qK_squared
         
-        qKV = torch.einsum("bhqp,bhpi->bhqi", qK, center_values)/torch.sqrt(self.head_dim)
+        qKV = torch.einsum("bhqp,bhpi->bhqi", qK, center_values)/torch.sqrt(torch.tensor(self.head_dim, device=qK.device, dtype=qK.dtype))
         
         y = mean_values + qKV/denominator.unsqueeze(-1)
 
@@ -194,6 +195,7 @@ class AttenApprox(nn.Module):
 # need to change this.
     def state_size(self, sequence_length: int=2048):
         return (
-            self.num_key_value_heads * self.head_dim * self.feature_map.expanded_size() + 
-            self.num_key_value_heads * self.feature_map.expanded_size()
+            1
+            # self.num_key_value_heads * self.head_dim * self.feature_map.expanded_size() + 
+            # self.num_key_value_heads * self.feature_map.expanded_size()
         )

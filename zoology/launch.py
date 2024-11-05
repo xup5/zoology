@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import importlib.util
+import traceback
 
 import click
 from tqdm import tqdm
@@ -16,7 +17,7 @@ def execute_config(config: TrainConfig):
     try: 
         train(config=config)
     except Exception as e:
-        return config, e
+        return config, (e, traceback.format_exc())
     return config, None
 
 
@@ -73,8 +74,15 @@ def main(python_file, outdir, name: str, parallelize: bool, gpus: str):
             for config, error in ray.get(complete):
                 if error is not None:
                     failed += 1
+                    print("\n" + "="*80)
+                    print("ERROR in config:")
                     config.print()
-                    print(error)
+                    print("\nError message:")
+                    error_obj, error_trace = error
+                    print(f"{error_obj.__class__.__name__}: {str(error_obj)}")
+                    print("\nFull traceback:")
+                    print(error_trace)
+                    print("="*80 + "\n")
                 completed += 1
             print(f"Completed: {completed} ({completed / total:0.1%} -- {failed} failed) | Total: {total}")
 

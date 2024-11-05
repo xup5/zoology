@@ -36,7 +36,7 @@ data = DataConfig(
     test_configs=test_configs,
     # can pass a tuple if you want a different batch size for train and test
     batch_size=(batch_size, batch_size / 8),
-    cache_dir="/var/cr05_data/sabri_data/zoology"
+    cache_dir="/n/home13/xupan/Projects/token_compression/zoology_cache"
 )
 
 # 2. Next, we are going to collect all the different model configs we want to sweep
@@ -327,7 +327,7 @@ for d_model in [128]:
 
 
 # convenience for filtering out 
-included = ["mra"]
+included = ["attention"]
 models = [m for m in models if any([i in m.name for i in included])]
 
 
