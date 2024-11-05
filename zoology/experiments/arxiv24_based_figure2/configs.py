@@ -326,8 +326,34 @@ for d_model in [128]:
 
 
 
+# attenapprox
+for d_model in [48, 64, 128]:
+    attention_mixer = dict(
+        name="zoology.mixers.attenapprox.AttenApprox",
+        kwargs={
+            "dropout": 0.1,
+            "num_heads": 1
+        },
+    )
+    mixer = ModuleConfig(
+        name="zoology.mixers.hybrid.Hybrid",
+        kwargs={"configs": [conv_mixer, attention_mixer]}
+    )
+    model = ModelConfig(
+        block_type="TransformerBlock",
+        d_model=d_model,
+        n_layers=2,
+        sequence_mixer=mixer,
+        max_position_embeddings=0,
+        name="attenapprox",
+        **model_factory_kwargs
+    )
+    models.append(model)
+
+
+
 # convenience for filtering out 
-included = ["attention"]
+included = ["attenapprox"]
 models = [m for m in models if any([i in m.name for i in included])]
 
 
