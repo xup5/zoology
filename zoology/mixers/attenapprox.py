@@ -158,7 +158,7 @@ class AttenApprox(nn.Module):
         # Linear attention
         # q, k = self.feature_map(q), self.feature_map(k)
         
-        # Attention approximation
+        # Attention approximation (batch_size, n_heads, seq_len, head_dim)
         n = torch.arange(1, q.shape[2]+1, device=q.device, dtype=q.dtype).unsqueeze(-1)
         mean_keys = torch.cumsum(k, dim=2)
         mean_keys = mean_keys/n
@@ -173,8 +173,9 @@ class AttenApprox(nn.Module):
         qK = torch.tril(qK)
         qK = qK.view(q.shape[0], q.shape[1], q.shape[2], q.shape[2])
         
-        qK_squared = torch.cumsum(qK**2/(2*torch.tensor(self.head_dim, device=qK.device, dtype=qK.dtype)), dim=2)
-        qK_squared = torch.sum(qK_squared, dim=3)
+        # qK_squared = torch.cumsum(qK**2, dim=2)/(2*torch.tensor(self.head_dim, device=qK.device, dtype=qK.dtype))
+        # qK_squared = torch.sum(qK_squared, dim=3)
+        qK_squared = torch.sum(qK**2, dim=3)/(2*torch.tensor(self.head_dim, device=qK.device, dtype=qK.dtype))
         
         denominator = n.squeeze() + qK_squared
         
